@@ -1,12 +1,12 @@
 #!/bin/bash
 
-TARGET_FONT_PATH="fonts/myfont.ttf"
+TARGET_FONT_PATH="fonts/M8.ttf"
 TRAIN_SPLIT_RATIO=0.8
 VAL_SPLIT_RATIO=0.2
 RANDOM_SEED=2025
-BATCH_SIZE=8
-LEARNING_RATE=1e-3
-NUM_EPOCHS=100
+BATCH_SIZE=16           # 从32降到16，平衡显存和速度
+LEARNING_RATE=5e-4      # 保持5e-4
+NUM_EPOCHS=150          # 从200降到150，平衡训练时间
 DEVICE="cuda"
 
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TARGET_FONT_PATH="fonts/myfont.ttf"
+TARGET_FONT_PATH="fonts/M8.ttf"
 TRAIN_SPLIT_RATIO=0.8
 VAL_SPLIT_RATIO=0.2
 RANDOM_SEED=2025

@@ -24,9 +24,9 @@ class VQVAEModelConfig:
     """
 
     input_img_channels: int = 1
-    encoder_base_channels: int = 64
-    latent_dim: int = 2
-    codebook_size: int = 64
+    encoder_base_channels: int = 128  # 从256降到128，平衡性能和速度
+    latent_dim: int = 4              # 从8降到4，减少显存占用
+    codebook_size: int = 256         # 从512降到256，减少显存占用
     commitment_cost: float = 0.25
 
 
