@@ -1,8 +1,8 @@
 #!/bin/bash
 
 TARGET_FONT_PATH="fonts/M8.ttf"
-TRAIN_SPLIT_RATIO=0.8
-VAL_SPLIT_RATIO=0.2
+TRAIN_SPLIT_RATIO=0.9           # 从0.8增加到0.9，增加训练集
+VAL_SPLIT_RATIO=0.1             # 从0.2降到0.1，减少验证集
 RANDOM_SEED=2025
 DEVICE="cuda"
 

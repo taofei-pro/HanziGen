@@ -1,16 +1,16 @@
 #!/bin/bash
 
 TARGET_FONT_PATH="fonts/M8.ttf"
-TRAIN_SPLIT_RATIO=0.8
-VAL_SPLIT_RATIO=0.2
+TRAIN_SPLIT_RATIO=0.9           # 保持0.9/0.1比例
+VAL_SPLIT_RATIO=0.1             # 保持0.9/0.1比例
 RANDOM_SEED=2025
-BATCH_SIZE=32           # 从64降到32，平衡显存和速度
-LEARNING_RATE=1e-4      # 保持1e-4
-NUM_EPOCHS=500          # 从1000降到500，平衡训练时间
-SAMPLE_STEPS=100        # 从200降到100，平衡质量和速度
-IMG_SAVE_INTERVAL=5     # 从2恢复到5
-LPIPS_EVAL_INTERVAL=10  # 从5恢复到10
-EVAL_BATCH_SIZE=4       # 从8降到4
+BATCH_SIZE=32                    # 从24增加到32，提升训练强度
+LEARNING_RATE=2e-4               # 从3e-4调到2e-4，更精细的学习率
+NUM_EPOCHS=500                   # 从300增加到500，充分训练
+SAMPLE_STEPS=120                 # 从80增加到120，提高生成质量
+IMG_SAVE_INTERVAL=5              # 保持5
+LPIPS_EVAL_INTERVAL=10           # 保持10
+EVAL_BATCH_SIZE=4                # 保持4
 DEVICE="cuda"
 
 
