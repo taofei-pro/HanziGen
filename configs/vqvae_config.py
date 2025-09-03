@@ -24,9 +24,9 @@ class VQVAEModelConfig:
     """
 
     input_img_channels: int = 1
-    encoder_base_channels: int = 112  # 从96增加到112，小幅提升编码能力
-    latent_dim: int = 4              # 从3增加到4，扩大潜在空间
-    codebook_size: int = 192         # 从128增加到192，增加码本容量
+    encoder_base_channels: int = 112  # 回退到批次#5的稳定配置
+    latent_dim: int = 4              # 回退到批次#5的稳定配置
+    codebook_size: int = 192         # 回退到批次#5的稳定配置
     commitment_cost: float = 0.25
 
 

@@ -23,11 +23,11 @@ class LDMModelConfig:
     Configuration class for the LDM architecture settings.
     """
 
-    unet_base_channels: int = 96     # 从80增加到96，小幅提升生成能力
+    unet_base_channels: int = 96     # 回退到批次#5的稳定配置
 
     time_pos_dim: int = 256          # 保持256
-    time_emb_dim: int = 1792         # 从1536增加到1792，小幅提升时间编码
-    time_steps: int = 1400           # 从1200增加到1400，提高生成质量
+    time_emb_dim: int = 1792         # 回退到批次#5的稳定配置
+    time_steps: int = 1400           # 回退到批次#5的稳定配置
 
 
 @dataclass
