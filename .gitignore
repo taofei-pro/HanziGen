@@ -20,5 +20,5 @@ svgs*/
 __pycache__/
 .DS_Store
 
-*.log
-backup/
+backups/
+logs/
