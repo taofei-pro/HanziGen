@@ -33,13 +33,15 @@ class VQVAEModelConfig:
 @dataclass
 class VQVAETrainingConfig:
     """
-    Configuration class for the VQVAE training settings.
+    Configuration class for VQ-VAE training settings.
     """
 
-    learning_rate: float = 1e-3
-    min_learning_rate: float = 1e-6
-    num_epochs: int = 100
+    # 针对小数据集优化：增加训练轮数，优化学习率策略
+    learning_rate: float = 8e-4        # 从6e-4增加到8e-4，加快收敛
+    min_learning_rate: float = 1e-6    # 保持默认值
+    num_epochs: int = 400              # 从200增加到400，充分学习小数据集
+    warmup_epochs: int = 50            # 新增：预热训练轮数
+    early_stopping_patience: int = 30  # 新增：早停耐心值
 
     model_save_path: str = "checkpoints/vqvae.pth"
-
     tensorboard_log_dir: str = "runs/VQVAE"

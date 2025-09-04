@@ -36,9 +36,12 @@ class LDMTrainingConfig:
     Configuration class for the LDM training settings.
     """
 
-    learning_rate: float = 5e-4
-    min_learning_rate: float = 1e-6
-    num_epochs: int = 250
+    # 针对小数据集优化：增加训练轮数，优化学习率策略
+    learning_rate: float = 3e-4        # 从2e-4增加到3e-4，加快收敛
+    min_learning_rate: float = 1e-6    # 保持默认值
+    num_epochs: int = 800              # 从500增加到800，充分学习小数据集
+    warmup_epochs: int = 100           # 新增：预热训练轮数
+    early_stopping_patience: int = 50  # 新增：早停耐心值
 
     pretrained_vqvae_path: str = "checkpoints/vqvae.pth"
     model_save_path: str = "checkpoints/ldm.pth"
