@@ -4,12 +4,12 @@ TARGET_FONT_PATH="fonts/M8.ttf"
 TRAIN_SPLIT_RATIO=0.9           # 保持0.9/0.1比例
 VAL_SPLIT_RATIO=0.1             # 保持0.9/0.1比例
 RANDOM_SEED=2025
-BATCH_SIZE=12                    # 从16降到12，减少过拟合风险
-LEARNING_RATE=8e-4               # 从6e-4增加到8e-4，加快收敛
-NUM_EPOCHS=400                   # 从200增加到400，充分学习小数据集
+BATCH_SIZE=10                    # 从12降到10，进一步减少过拟合风险
+LEARNING_RATE=1e-3               # 从8e-4增加到1e-3，更激进的学习率
+NUM_EPOCHS=600                   # 从400增加到600，进一步充分学习小数据集
 DEVICE="cuda"
 
-echo "🚀 开始针对小数据集优化的VQ-VAE训练..."
+echo "🚀 开始针对小数据集优化的VQ-VAE训练（进阶版）..."
 echo "📊 数据集大小: 749个字符"
 echo "🎯 优化策略: 增加训练轮数 + 优化学习率 + 增强正则化"
 echo ""

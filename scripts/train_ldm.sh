@@ -4,16 +4,16 @@ TARGET_FONT_PATH="fonts/M8.ttf"
 TRAIN_SPLIT_RATIO=0.9           # 保持0.9/0.1比例
 VAL_SPLIT_RATIO=0.1             # 保持0.9/0.1比例
 RANDOM_SEED=2025
-BATCH_SIZE=24                    # 从32降到24，减少过拟合风险
-LEARNING_RATE=3e-4               # 从2e-4增加到3e-4，加快收敛
-NUM_EPOCHS=800                   # 从500增加到800，充分学习小数据集
-SAMPLE_STEPS=150                 # 从120增加到150，提升生成质量
+BATCH_SIZE=20                    # 从24降到20，进一步减少过拟合风险
+LEARNING_RATE=4e-4               # 从3e-4增加到4e-4，更激进的学习率
+NUM_EPOCHS=1000                  # 从800增加到1000，进一步充分学习小数据集
+SAMPLE_STEPS=150                 # 保持150步，提升生成质量
 IMG_SAVE_INTERVAL=5              # 保持5
 LPIPS_EVAL_INTERVAL=10           # 保持10
 EVAL_BATCH_SIZE=4                # 保持4
 DEVICE="cuda"
 
-echo "🚀 开始针对小数据集优化的LDM训练..."
+echo "🚀 开始针对小数据集优化的LDM训练（进阶版）..."
 echo "📊 数据集大小: 749个字符"
 echo "🎯 优化策略: 增加训练轮数 + 优化学习率 + 增强正则化"
 echo ""
