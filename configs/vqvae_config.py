@@ -11,10 +11,20 @@ class VQVAEDatasetConfig:
     reference_img_dir: str = "data/reference"
 
     splits_root: str = "charsets"
-    split_ratios: tuple[float, float] = (0.8, 0.2)
+    split_ratios: tuple[float, float] = (0.9, 0.1)
     random_seed: int = 2025
-    batch_size: int = 8
+    batch_size: int = 4          # 降低批次大小，避免显存爆炸 (8 → 4)
     num_workers: int = 4
+    
+    # 数据增强配置（针对字形数据优化）
+    use_data_augmentation: bool = False   # 禁用数据增强 - 字形数据对几何变换过于敏感
+    augmentation_type: str = "basic"       # 增强类型（已禁用）
+    rotation_range: float = 1.0            # 旋转角度范围（度）- 已禁用
+    scale_range: tuple[float, float] = (0.98, 1.02)  # 缩放范围 - 已禁用
+    noise_std: float = 0.002               # 噪声标准差 - 已禁用
+    brightness_range: tuple[float, float] = (0.95, 1.05)  # 亮度调整范围 - 已禁用
+    contrast_range: tuple[float, float] = (0.95, 1.05)    # 对比度调整范围 - 已禁用
+    augmentation_prob: float = 0.0        # 应用增强的概率 - 已禁用
 
 
 @dataclass
@@ -24,10 +34,16 @@ class VQVAEModelConfig:
     """
 
     input_img_channels: int = 1
-    encoder_base_channels: int = 112  # 回退到批次#5的稳定配置
-    latent_dim: int = 4              # 回退到批次#5的稳定配置
-    codebook_size: int = 192         # 回退到批次#5的稳定配置
+    encoder_base_channels: int = 96  # 平衡性能和速度 (128 → 96, 原稳定值)
+    latent_dim: int = 4              # 平衡表达能力和效率 (6 → 4, 原稳定值)
+    codebook_size: int = 192         # 充足的码本容量 (256 → 192)
     commitment_cost: float = 0.25
+    
+    # VQ-GAN settings (默认启用VQ-GAN模式)
+    use_vqgan: bool = True           # 是否启用VQ-GAN模式 (默认启用)
+    discriminator_lr: float = 2e-4   # 降低判别器学习率，提高稳定性 (3e-4 → 2e-4)
+    perceptual_weight: float = 0.4   # 增加感知损失权重，提高质量 (0.3 → 0.4)
+    adversarial_weight: float = 0.1  # 降低对抗损失权重，减少训练不稳定 (0.15 → 0.1)
 
 
 @dataclass
@@ -36,12 +52,16 @@ class VQVAETrainingConfig:
     Configuration class for VQ-VAE training settings.
     """
 
-    # 针对小数据集优化：增加训练轮数，优化学习率策略
-    learning_rate: float = 8e-4        # 从6e-4增加到8e-4，加快收敛
+    # 平衡训练速度和效果
+    learning_rate: float = 8e-4        # 提高学习率，加快收敛 (6e-4 → 8e-4)
     min_learning_rate: float = 1e-6    # 保持默认值
-    num_epochs: int = 400              # 从200增加到400，充分学习小数据集
-    warmup_epochs: int = 50            # 新增：预热训练轮数
-    early_stopping_patience: int = 30  # 新增：早停耐心值
+    num_epochs: int = 400              # 减少训练轮数，提高速度 (500 → 400)
+    warmup_epochs: int = 30            # 减少预热轮数 (40 → 30)
+    early_stopping_patience: int = 100  # 合理的早停耐心 (120 → 100)
+    
+    # 新增正则化参数
+    weight_decay: float = 2e-4         # 增加权重衰减，防止过拟合
+    dropout_rate: float = 0.1          # 添加dropout，提高泛化能力
 
     model_save_path: str = "checkpoints/vqvae.pth"
     tensorboard_log_dir: str = "runs/VQVAE"

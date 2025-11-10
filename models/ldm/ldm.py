@@ -18,7 +18,7 @@ from configs.ldm_config import LDMInferenceConfig, LDMModelConfig, LDMTrainingCo
 from configs.vqvae_config import VQVAEModelConfig
 from datasets.image_dataset import PairedGlyphImageDataset
 from datasets.loader import Loader
-from models.unet.unet import UNet
+from models.unet.unet import UNet, StableDiffusionUNet
 from models.vqvae.vqvae import VQVAE
 from utils.font.font_utils import read_charset_from_file
 from utils.hardware.hardware_utils import select_device
@@ -43,6 +43,7 @@ class LDM(nn.Module):
         vqvae_model_config: VQVAEModelConfig,
         ldm_model_config: LDMModelConfig,
         device: torch.device | None = None,
+        use_stable_diffusion: bool = False,
     ):
         super().__init__()
 
@@ -58,6 +59,7 @@ class LDM(nn.Module):
         )
 
         # Define VQ-VAE model
+        # Check if we need to enable VQ-GAN mode based on the pretrained model
         self.vqvae = VQVAE(
             model_config=vqvae_model_config,
             device=self.device,
@@ -67,13 +69,24 @@ class LDM(nn.Module):
         self.vqvae_decoder = self.vqvae.decoder
 
         # Define UNet model
-        self.unet = UNet(
-            in_channels=vqvae_model_config.latent_dim * 2,
-            out_channels=vqvae_model_config.latent_dim,
-            base_channels=ldm_model_config.unet_base_channels,
-            time_emb_dim=ldm_model_config.time_emb_dim,
-            device=self.device,
-        )
+        if use_stable_diffusion:
+            print("🚀 使用Stable Diffusion UNet架构...")
+            self.unet = StableDiffusionUNet(
+                in_channels=vqvae_model_config.latent_dim * 2,
+                out_channels=vqvae_model_config.latent_dim,
+                base_channels=320,  # Stable Diffusion配置
+                time_emb_dim=ldm_model_config.time_emb_dim,  # 保持原有时间嵌入维度
+                device=self.device,
+            )
+        else:
+            print("📦 使用标准UNet架构...")
+            self.unet = UNet(
+                in_channels=vqvae_model_config.latent_dim * 2,
+                out_channels=vqvae_model_config.latent_dim,
+                base_channels=ldm_model_config.unet_base_channels,
+                time_emb_dim=ldm_model_config.time_emb_dim,
+                device=self.device,
+            )
 
         # Define scheduler
         self.scheduler = SigmoidScheduler(
@@ -106,6 +119,31 @@ class LDM(nn.Module):
             map_location=self.device,
             weights_only=True,
         )
+        
+        # Check if this is a VQ-GAN model (contains discriminator or perceptual_loss)
+        is_vqgan = any('discriminator' in key or 'perceptual_loss' in key for key in ckpt.keys())
+        
+        if is_vqgan and not self.vqvae.use_vqgan:
+            # Need to recreate VQ-VAE with VQ-GAN mode enabled
+            print("🔄 检测到VQ-GAN模型，重新创建VQ-VAE以支持VQ-GAN组件...")
+            
+            # Create a new VQ-VAE config with VQ-GAN enabled
+            from configs.vqvae_config import VQVAEModelConfig
+            vqvae_config = VQVAEModelConfig()
+            vqvae_config.use_vqgan = True
+            
+            # Recreate VQ-VAE with VQ-GAN support
+            self.vqvae = VQVAE(
+                model_config=vqvae_config,
+                device=self.device,
+            )
+            self.vqvae_encoder = self.vqvae.encoder
+            self.vqvae_quantizer = self.vqvae.vector_quantizer
+            self.vqvae_decoder = self.vqvae.decoder
+            
+            print("✅ VQ-VAE已重新创建，支持VQ-GAN组件")
+        
+        # Load the state dict
         self.vqvae.load_state_dict(ckpt)
         self.vqvae.eval()
 
@@ -204,6 +242,8 @@ class LDM(nn.Module):
             )
 
             min_lpips_score = float("inf")
+            patience_counter = 0
+            early_stopping_patience = getattr(training_config, 'early_stopping_patience', 50)
 
             for epoch in range(training_config.num_epochs):
 
@@ -241,15 +281,22 @@ class LDM(nn.Module):
                     epoch=epoch,
                 )
 
-                # Save the best model based on LPIPS score
+                # Save the best model based on LPIPS score and check early stopping
                 if (
                     scores is not None
                     and scores.get("lpips", float("inf")) < min_lpips_score
                 ):
-
                     min_lpips_score = scores["lpips"]
+                    patience_counter = 0
                     torch.save(self.state_dict(), model_save_path)
                     print(f"✅ Best model saved. (LPIPS score: {min_lpips_score:.6f})")
+                else:
+                    # 只有在LPIPS评估时才增加patience_counter
+                    if scores is not None:
+                        patience_counter += 1
+                        if patience_counter >= early_stopping_patience:
+                            print(f"🛑 Early stopping triggered after {epoch + 1} epochs (patience: {early_stopping_patience})")
+                            break
 
                 # Print Metrics
                 self._print_epoch_status(
@@ -287,13 +334,17 @@ class LDM(nn.Module):
         self.train()
         epoch_loss = 0.0
 
-        for batch in tqdm(train_loader, desc="Training"):
+        for batch_idx, batch in enumerate(tqdm(train_loader, desc="Training")):
             batch_loss = self._process_batch(
                 batch=batch,
                 is_training=True,
                 optimizer=optimizer,
             )
             epoch_loss += batch_loss
+            
+            # 🔥 完全移除empty_cache()调用
+            # empty_cache()在WSL2环境下极其耗时，完全拖垮训练
+            # PyTorch会自动管理显存，不需要手动清理
 
         return epoch_loss / len(train_loader)
 

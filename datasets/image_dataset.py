@@ -5,6 +5,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 
 from utils.image.image_utils import check_names_match, get_image_names, get_image_paths
+from utils.data_augmentation import create_augmentation_pipeline
 
 
 def create_transform(
@@ -31,6 +32,14 @@ class PairedGlyphImageDataset(Dataset):
         self,
         target_img_dir: str | Path,
         reference_img_dir: str | Path,
+        use_data_augmentation: bool = False,
+        augmentation_type: str = "basic",
+        rotation_range: float = 5.0,
+        scale_range: tuple[float, float] = (0.95, 1.05),
+        noise_std: float = 0.01,
+        brightness_range: tuple[float, float] = (0.9, 1.1),
+        contrast_range: tuple[float, float] = (0.9, 1.1),
+        augmentation_prob: float = 0.5,
     ):
         self.tgt_img_paths = get_image_paths(target_img_dir)
         self.ref_img_paths = get_image_paths(reference_img_dir)
@@ -41,6 +50,14 @@ class PairedGlyphImageDataset(Dataset):
         self.transform = create_transform(
             normalize=True,
         )
+        
+        # 数据增强设置
+        self.use_data_augmentation = use_data_augmentation
+        if use_data_augmentation:
+            self.augmentation = create_augmentation_pipeline(augmentation_type)
+            print(f"✅ 数据增强已启用: {augmentation_type} 模式")
+        else:
+            self.augmentation = None
 
     def __len__(self):
         return len(self.ref_img_paths)
@@ -51,6 +68,11 @@ class PairedGlyphImageDataset(Dataset):
 
         tgt_img = self.transform(tgt_img)
         ref_img = self.transform(ref_img)
+        
+        # 应用数据增强（仅对训练数据）
+        if self.use_data_augmentation and self.augmentation is not None:
+            tgt_img = self.augmentation(tgt_img)
+            ref_img = self.augmentation(ref_img)
 
         img_name = self.img_names[idx]
 

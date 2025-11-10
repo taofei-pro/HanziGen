@@ -1,38 +1,90 @@
 #!/bin/bash
 
-TARGET_FONT_PATH="fonts/M8.ttf"
+TARGET_FONT_PATH="fonts/Z1.ttf"
 TRAIN_SPLIT_RATIO=0.9           # 保持0.9/0.1比例
 VAL_SPLIT_RATIO=0.1             # 保持0.9/0.1比例
 RANDOM_SEED=2025
-BATCH_SIZE=20                    # 从24降到20，进一步减少过拟合风险
-LEARNING_RATE=4e-4               # 从3e-4增加到4e-4，更激进的学习率
-NUM_EPOCHS=1000                  # 从800增加到1000，进一步充分学习小数据集
-SAMPLE_STEPS=150                 # 保持150步，提升生成质量
+BATCH_SIZE=16                    # 回退到稳定批次大小
+LEARNING_RATE=4e-4               # 进一步提高学习率，加快收敛
+NUM_EPOCHS=600                   # 适中的训练轮数
+SAMPLE_STEPS=200                 # 进一步增加采样步数，提升生成质量
 IMG_SAVE_INTERVAL=5              # 保持5
 LPIPS_EVAL_INTERVAL=10           # 保持10
 EVAL_BATCH_SIZE=4                # 保持4
 DEVICE="cuda"
 
-echo "🚀 开始针对小数据集优化的LDM训练（进阶版）..."
+echo "🚀 开始基于VQ-GAN的LDM训练..."
 echo "📊 数据集大小: 749个字符"
-echo "🎯 优化策略: 增加训练轮数 + 优化学习率 + 增强正则化"
+echo "🎯 优化策略: 基于VQ-GAN的高质量潜在空间 + 增强扩散模型"
+echo "💾 显存优化: 针对RTX 5090D优化"
+echo "🔧 架构改进: VQ-GAN潜在空间 + 改进的注意力机制 + 残差连接"
+echo "🚀 预期提升: 利用VQ-GAN的优质潜在表示提升生成质量"
 echo ""
 
+# 获取目标字体名称
 TARGET_FONT_NAME=$(basename "$TARGET_FONT_PATH" | sed -E 's/\.(ttf|otf)$//')
 
-PRETRAINED_VQVAE_PATH="checkpoints/vqvae_${TARGET_FONT_NAME}.pth"
+# 清理LDM相关的训练产物
+echo "🧹 清理LDM训练产物..."
+if [ -f "checkpoints/ldm_${TARGET_FONT_NAME}.pth" ]; then
+    rm -f checkpoints/ldm_${TARGET_FONT_NAME}.pth
+    echo "   ✅ 已清理旧的LDM模型权重"
+fi
+
+if [ -d "runs/LDM" ] && [ "$(ls -A runs/LDM)" ]; then
+    rm -rf runs/LDM/*
+    echo "   ✅ 已清理LDM训练日志"
+fi
+
+if [ -d "samples_${TARGET_FONT_NAME}" ] && [ "$(ls -A samples_${TARGET_FONT_NAME})" ]; then
+    rm -rf samples_${TARGET_FONT_NAME}/*
+    echo "   ✅ 已清理LDM生成样本"
+fi
+
+if [ -d "svgs_${TARGET_FONT_NAME}" ] && [ "$(ls -A svgs_${TARGET_FONT_NAME})" ]; then
+    rm -rf svgs_${TARGET_FONT_NAME}/*
+    echo "   ✅ 已清理SVG输出文件"
+fi
+
+# 清理Python缓存
+if [ -d "__pycache__" ]; then
+    rm -rf __pycache__
+fi
+if [ -d "models/__pycache__" ]; then
+    rm -rf models/__pycache__/
+fi
+if [ -d "datasets/__pycache__" ]; then
+    rm -rf datasets/__pycache__/
+fi
+if [ -d "configs/__pycache__" ]; then
+    rm -rf configs/__pycache__/
+fi
+
+echo "✅ LDM清理完成，开始训练..."
+echo ""
+
+PRETRAINED_VQVAE_PATH="checkpoints/vqgan_${TARGET_FONT_NAME}.pth"
 MODEL_SAVE_PATH="checkpoints/ldm_${TARGET_FONT_NAME}.pth"
 SAMPLE_ROOT="samples_${TARGET_FONT_NAME}/"
 
 echo "📁 目标字体: $TARGET_FONT_NAME"
-echo "💾 VQ-VAE模型: $PRETRAINED_VQVAE_PATH"
+echo "💾 VQ-GAN模型: $PRETRAINED_VQVAE_PATH"
 echo "💾 LDM模型保存路径: $MODEL_SAVE_PATH"
 echo "⚙️  训练参数:"
-echo "   - 批次大小: $BATCH_SIZE"
-echo "   - 学习率: $LEARNING_RATE"
-echo "   - 训练轮数: $NUM_EPOCHS"
+echo "   - 批次大小: 4"
+echo "   - 学习率: $LEARNING_RATE (提高收敛速度)"
+echo "   - 训练轮数: $NUM_EPOCHS (减少到600轮)"
 echo "   - 采样步数: $SAMPLE_STEPS"
 echo "   - 训练/验证比例: $TRAIN_SPLIT_RATIO/$VAL_SPLIT_RATIO"
+echo "   - 显存清理: 每10批次 (平衡速度与显存)"
+echo "   - 数据增强: 已禁用"
+echo "🔧 LDM架构速度优化:"
+echo "   - UNet通道: 96 (回退到稳定值)"
+echo "   - 时间嵌入: 1792"
+echo "   - 时间步数: 1400"
+echo "   - Stable Diffusion通道: 320"
+echo "   - 残差连接: 启用 ✓"
+echo "   - 注意力机制: 启用 ✓"
 echo ""
 
 # 检查VQ-VAE模型是否存在
@@ -58,7 +110,8 @@ python train_ldm.py \
     --img_save_interval "$IMG_SAVE_INTERVAL" \
     --lpips_eval_interval "$LPIPS_EVAL_INTERVAL" \
     --eval_batch_size "$EVAL_BATCH_SIZE" \
-    --device "$DEVICE"
+    --device "$DEVICE" \
+    --use_stable_diffusion
 
 echo ""
 echo "✅ LDM训练完成！"

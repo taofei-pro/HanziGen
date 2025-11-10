@@ -8,7 +8,7 @@ echo "📁 只清理训练相关的文件，保留重要数据"
 echo ""
 
 # 获取目标字体名称
-TARGET_FONT_PATH="fonts/M8.ttf"
+TARGET_FONT_PATH="fonts/Z1.ttf"
 TARGET_FONT_NAME=$(basename "$TARGET_FONT_PATH" | sed -E 's/\.(ttf|otf)$//')
 
 echo "📁 目标字体: $TARGET_FONT_NAME"

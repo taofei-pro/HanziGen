@@ -8,7 +8,7 @@ echo "================================"
 
 # 设置默认参数
 MAX_ITERATIONS=${1:-20}
-TARGET_FONT="fonts/M8.ttf"
+TARGET_FONT="fonts/Z1.ttf"
 
 echo "目标字体: $TARGET_FONT"
 echo "最大迭代次数: $MAX_ITERATIONS"
@@ -36,7 +36,7 @@ echo ""
 echo ""
 echo "🚀 启动自动化参数搜索..."
 echo "📊 实时日志: auto_search.log"
-echo "📈 搜索历史: search_history_M8.json"
+echo "📈 搜索历史: search_history_Z1.json"
 echo "📝 训练日志: TRAINING_LOG.md"
 echo ""
 
@@ -49,5 +49,5 @@ echo ""
 echo "🎉 自动化参数搜索完成！"
 echo "请查看以下文件了解结果："
 echo "- auto_search.log: 详细执行日志"
-echo "- search_history_M8.json: 搜索历史记录"
+echo "- search_history_Z1.json: 搜索历史记录"
 echo "- TRAINING_LOG.md: 训练批次记录"

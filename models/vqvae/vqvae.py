@@ -52,11 +52,31 @@ class VQVAE(nn.Module):
             out_channels=model_config.input_img_channels,
         )
 
-        # Define loss function
-        self.loss_fn = nn.MSELoss()
-
+        # Define loss functions
+        self.mse_loss = nn.MSELoss()
+        self.l1_loss = nn.L1Loss()
+        
+        # VQ-GAN components
+        self.use_vqgan = getattr(model_config, 'use_vqgan', False)
+        if self.use_vqgan:
+            self.discriminator = self._build_discriminator(model_config)
+            self.perceptual_loss = self._build_perceptual_loss()
+        
         # Move model to device
         self.to(self.device)
+    
+    def _build_discriminator(self, model_config):
+        """Build PatchGAN discriminator for VQ-GAN."""
+        from .discriminator import PatchGANDiscriminator
+        return PatchGANDiscriminator(
+            in_channels=model_config.input_img_channels,
+            base_channels=64
+        )
+    
+    def _build_perceptual_loss(self):
+        """Build perceptual loss using VGG features."""
+        from .perceptual_loss import PerceptualLoss
+        return PerceptualLoss()
 
     # ===== Core Operations =====
     def forward(
@@ -64,12 +84,12 @@ class VQVAE(nn.Module):
         x: Tensor,
     ) -> tuple[Tensor, Tensor]:
         """
-        Forward pass of the VQ-VAE model.
+        Enhanced forward pass with skip connections.
         """
 
         encoded_features = self.encoder(x)
         quantized_features, vq_loss = self.vector_quantizer(encoded_features)
-        x_recon = self.decoder(quantized_features)
+        x_recon = self.decoder(quantized_features, self.encoder.skip_features)
 
         return x_recon, vq_loss
 
@@ -78,22 +98,58 @@ class VQVAE(nn.Module):
         batch: dict[str, Tensor],
         is_training: bool,
         optimizer: Optimizer | None = None,
+        discriminator_optimizer: Optimizer | None = None,
     ) -> dict[str, float]:
         """
-        Process a single batch of data.
+        Process a single batch of data with VQ-GAN support.
         """
         tgt_imgs = batch["tgt_img"].to(self.device)
         ref_imgs = batch["ref_img"].to(self.device)
 
+        # Forward pass
         tgt_x_recon, tgt_vq_loss = self(tgt_imgs)
-        tgt_recon_loss = self.loss_fn(tgt_x_recon, tgt_imgs)
-
         ref_x_recon, ref_vq_loss = self(ref_imgs)
-        ref_recon_loss = self.loss_fn(ref_x_recon, ref_imgs)
 
+        # Basic reconstruction losses
+        tgt_recon_loss = self.mse_loss(tgt_x_recon, tgt_imgs)
+        ref_recon_loss = self.mse_loss(ref_x_recon, ref_imgs)
+        
         recon_loss = (tgt_recon_loss + ref_recon_loss) / 2
         vq_loss = (tgt_vq_loss + ref_vq_loss) / 2
-        total_loss = recon_loss + vq_loss
+        
+        # VQ-GAN losses
+        if self.use_vqgan:
+            # Perceptual loss
+            tgt_perceptual_loss = self.perceptual_loss.compute_perceptual_loss(tgt_x_recon, tgt_imgs)
+            ref_perceptual_loss = self.perceptual_loss.compute_perceptual_loss(ref_x_recon, ref_imgs)
+            perceptual_loss = (tgt_perceptual_loss + ref_perceptual_loss) / 2
+            
+            # Discriminator loss
+            real_logits = self.discriminator(torch.cat([tgt_imgs, ref_imgs], dim=0))
+            fake_logits = self.discriminator(torch.cat([tgt_x_recon, ref_x_recon], dim=0))
+            
+            if is_training and discriminator_optimizer is not None:
+                # Train discriminator
+                discriminator_loss = self.discriminator.compute_discriminator_loss(real_logits, fake_logits.detach())
+                discriminator_optimizer.zero_grad()
+                discriminator_loss.backward()
+                discriminator_optimizer.step()
+            
+            # Generator loss (detach fake_logits to avoid gradient conflicts)
+            generator_loss = self.discriminator.compute_generator_loss(fake_logits.detach())
+            
+            # Total loss with VQ-GAN components (优化权重)
+            total_loss = (
+                recon_loss + 
+                vq_loss + 
+                0.4 * perceptual_loss +    # 大幅提高感知损失权重 (0.1 → 0.4)
+                0.1 * generator_loss        # 提高对抗损失权重 (0.05 → 0.1)
+            )
+        else:
+            # Standard VQ-VAE loss
+            total_loss = recon_loss + vq_loss
+            perceptual_loss = torch.tensor(0.0)
+            generator_loss = torch.tensor(0.0)
 
         if is_training and optimizer is not None:
             optimizer.zero_grad()
@@ -106,6 +162,12 @@ class VQVAE(nn.Module):
             "recon": recon_loss.item(),
             "vq": vq_loss.item(),
         }
+        
+        if self.use_vqgan:
+            losses.update({
+                "perceptual": perceptual_loss.item(),
+                "generator": generator_loss.item(),
+            })
 
         return losses
 
@@ -116,6 +178,7 @@ class VQVAE(nn.Module):
         optimizer: Optimizer,
         scheduler: LRScheduler,
         training_config: VQVAETrainingConfig,
+        discriminator_optimizer: Optimizer | None = None,
     ) -> None:
         """
         Train the VQ-VAE model and save the best model checkpoint.
@@ -131,6 +194,8 @@ class VQVAE(nn.Module):
             model_save_path.parent.mkdir(parents=True, exist_ok=True)
 
             min_val_loss = float("inf")
+            patience_counter = 0
+            early_stopping_patience = getattr(training_config, 'early_stopping_patience', 50)
 
             for epoch in range(training_config.num_epochs):
 
@@ -138,6 +203,7 @@ class VQVAE(nn.Module):
                 train_losses, val_losses = self._run_epoch(
                     loader=loader,
                     optimizer=optimizer,
+                    discriminator_optimizer=discriminator_optimizer,
                 )
 
                 # Update learning rate
@@ -156,8 +222,14 @@ class VQVAE(nn.Module):
                 # Save the best model checkpoint
                 if val_losses["total"] < min_val_loss:
                     min_val_loss = val_losses["total"]
+                    patience_counter = 0
                     torch.save(self.state_dict(), model_save_path)
                     print(f"✅ Best model saved (val loss: {min_val_loss:.6f})")
+                else:
+                    patience_counter += 1
+                    if patience_counter >= early_stopping_patience:
+                        print(f"🛑 Early stopping triggered after {epoch + 1} epochs (patience: {early_stopping_patience})")
+                        break
 
                 # Print Metrics
                 self._print_epoch_status(
@@ -172,6 +244,7 @@ class VQVAE(nn.Module):
         self,
         loader: Loader,
         optimizer: Optimizer,
+        discriminator_optimizer: Optimizer | None = None,
     ) -> tuple[dict[str, float], dict[str, float]]:
         """
         Run one epoch of training and validation.
@@ -179,7 +252,7 @@ class VQVAE(nn.Module):
         train_loader = loader.loader.train
         val_loader = loader.loader.val
 
-        train_losses = self._train_one_epoch(train_loader, optimizer)
+        train_losses = self._train_one_epoch(train_loader, optimizer, discriminator_optimizer)
         val_losses = self._validate_one_epoch(val_loader)
 
         return train_losses, val_losses
@@ -188,6 +261,7 @@ class VQVAE(nn.Module):
         self,
         train_loader: DataLoader,
         optimizer: Optimizer,
+        discriminator_optimizer: Optimizer | None = None,
     ) -> dict[str, float]:
         """
         Train the model for one epoch.
@@ -195,14 +269,21 @@ class VQVAE(nn.Module):
         self.train()
         epoch_losses = {"total": 0.0, "recon": 0.0, "vq": 0.0}
 
-        for batch in tqdm(train_loader, desc="Training"):
+        for batch_idx, batch in enumerate(tqdm(train_loader, desc="Training")):
             batch_losses = self._process_batch(
                 batch=batch,
                 is_training=True,
                 optimizer=optimizer,
+                discriminator_optimizer=discriminator_optimizer,
             )
+            # 累积loss值，避免保留计算图
             for k in epoch_losses.keys():
                 epoch_losses[k] += batch_losses[k]
+            
+            # 🔥 完全移除empty_cache()调用
+            # empty_cache()在WSL2环境下极其耗时（23秒/次），完全拖垮训练
+            # PyTorch会自动管理显存，不需要手动清理
+            # 只有在显存不足时才需要调用，正常训练不需要
 
         num_batches = len(train_loader)
         return {

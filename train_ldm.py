@@ -38,6 +38,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--eval_batch_size", type=int, help="Batch size for evaluation")
     parser.add_argument("--device", type=str, help="Training device (mps, cpu, cuda)")
+    parser.add_argument("--use_stable_diffusion", action="store_true", help="Use Stable Diffusion UNet")
 
     return parser.parse_args()
 
@@ -48,6 +49,7 @@ def train_ldm(
     ldm_model_config: LDMModelConfig,
     training_config: LDMTrainingConfig,
     device: torch.device,
+    use_stable_diffusion: bool = False,
 ):
     """ """
     loader = Loader.from_dataset_config(
@@ -59,6 +61,7 @@ def train_ldm(
         vqvae_model_config=vqvae_model_config,
         ldm_model_config=ldm_model_config,
         device=device,
+        use_stable_diffusion=use_stable_diffusion,
     )
 
     optimizer = optim.Adam(
@@ -111,6 +114,7 @@ def main() -> None:
         ldm_model_config=ldm_model_config,
         training_config=training_config,
         device=device,
+        use_stable_diffusion=args.use_stable_diffusion,
     )
 
 

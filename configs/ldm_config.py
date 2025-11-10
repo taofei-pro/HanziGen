@@ -11,10 +11,20 @@ class LDMDatasetConfig:
     reference_img_dir: str = "data/reference"
 
     splits_root: str = "charsets"
-    split_ratios: tuple[float, float] = (0.8, 0.2)
+    split_ratios: tuple[float, float] = (0.9, 0.1)
     random_seed: int = 2025
-    batch_size: int = 16
+    batch_size: int = 4          # 降低批次大小，避免显存爆炸 (12 → 4)
     num_workers: int = 4
+    
+    # 数据增强配置（针对字形数据优化）
+    use_data_augmentation: bool = False   # 禁用数据增强 - 字形数据对几何变换过于敏感
+    augmentation_type: str = "basic"       # 增强类型（已禁用）
+    rotation_range: float = 1.0            # 旋转角度范围（度）- 已禁用
+    scale_range: tuple[float, float] = (0.98, 1.02)  # 缩放范围 - 已禁用
+    noise_std: float = 0.002               # 噪声标准差 - 已禁用
+    brightness_range: tuple[float, float] = (0.95, 1.05)  # 亮度调整范围 - 已禁用
+    contrast_range: tuple[float, float] = (0.95, 1.05)    # 对比度调整范围 - 已禁用
+    augmentation_prob: float = 0.0        # 应用增强的概率 - 已禁用
 
 
 @dataclass
@@ -23,11 +33,55 @@ class LDMModelConfig:
     Configuration class for the LDM architecture settings.
     """
 
-    unet_base_channels: int = 96     # 回退到批次#5的稳定配置
+    unet_base_channels: int = 96     # 回退到稳定配置 (112 → 96)
 
     time_pos_dim: int = 256          # 保持256
-    time_emb_dim: int = 1792         # 回退到批次#5的稳定配置
-    time_steps: int = 1400           # 回退到批次#5的稳定配置
+    time_emb_dim: int = 1792         # 回退到稳定配置 (2048 → 1792)
+    time_steps: int = 1400           # 回退到稳定配置 (1600 → 1400)
+    
+    # 默认使用Stable Diffusion架构
+    use_stable_diffusion: bool = True
+
+
+@dataclass
+class StableDiffusionLDMModelConfig:
+    """
+    Configuration class for the Stable Diffusion LDM architecture settings.
+    """
+
+    # UNet架构参数
+    model_channels: int = 320        # 回退到稳定配置 (384 → 320)
+    out_channels_mult: tuple = (1, 2, 4, 4)
+    num_res_blocks: int = 2
+    attention_resolutions: tuple = (4, 2, 1)
+    dropout: float = 0.0
+    channel_mult: tuple = (1, 2, 4, 4)
+    conv_resample: bool = True
+    dims: int = 2
+    num_classes: int = None
+    use_checkpoint: bool = False
+    use_fp16: bool = False
+    num_heads: int = 8
+    num_head_channels: int = -1
+    num_heads_upsample: int = -1
+    use_scale_shift_norm: bool = False
+    resblock_updown: bool = False
+    use_new_attention_order: bool = False
+    use_spatial_transformer: bool = False
+    transformer_depth: int = 1
+    context_dim: int = None
+    n_embed: int = None
+    legacy: bool = True
+
+    # 时间嵌入参数
+    time_pos_dim: int = 256
+    time_emb_dim: int = 1280         # model_channels * 4 (320 * 4)
+    time_steps: int = 1000           # 回退到稳定配置 (1200 → 1000)
+
+    # 噪声调度参数
+    beta_start: float = 0.0001
+    beta_end: float = 0.02
+    beta_schedule: str = "linear"
 
 
 @dataclass
@@ -36,12 +90,12 @@ class LDMTrainingConfig:
     Configuration class for the LDM training settings.
     """
 
-    # 针对小数据集优化：增加训练轮数，优化学习率策略
-    learning_rate: float = 3e-4        # 从2e-4增加到3e-4，加快收敛
+    # 平衡训练速度和效果
+    learning_rate: float = 4e-4        # 提高学习率，加快收敛 (3e-4 → 4e-4)
     min_learning_rate: float = 1e-6    # 保持默认值
-    num_epochs: int = 800              # 从500增加到800，充分学习小数据集
-    warmup_epochs: int = 100           # 新增：预热训练轮数
-    early_stopping_patience: int = 50  # 新增：早停耐心值
+    num_epochs: int = 600              # 减少训练轮数，提高速度 (700 → 600)
+    warmup_epochs: int = 50            # 减少预热轮数 (60 → 50)
+    early_stopping_patience: int = 100  # 合理的早停耐心 (120 → 100)
 
     pretrained_vqvae_path: str = "checkpoints/vqvae.pth"
     model_save_path: str = "checkpoints/ldm.pth"
@@ -54,7 +108,38 @@ class LDMTrainingConfig:
     gt_split: str = "eval_outputs/gt"
     gen_split: str = "eval_outputs/gen"
 
-    sample_steps: int = 50
+    sample_steps: int = 200            # 进一步增加采样步数，提升生成质量
+
+    img_save_interval: int = 5
+    lpips_eval_interval: int = 10
+    eval_batch_size: int = 2
+
+
+@dataclass
+class StableDiffusionLDMTrainingConfig:
+    """
+    Configuration class for the Stable Diffusion LDM training settings.
+    """
+
+    # 平衡训练速度和效果
+    learning_rate: float = 5e-4        # 提高学习率，加快收敛 (4e-4 → 5e-4)
+    min_learning_rate: float = 1e-6    # 保持默认值
+    num_epochs: int = 800              # 减少训练轮数，提高速度 (900 → 800)
+    warmup_epochs: int = 100           # 减少预热轮数 (120 → 100)
+    early_stopping_patience: int = 100  # 合理的早停耐心 (120 → 100)
+
+    pretrained_vqvae_path: str = "checkpoints/vqvae.pth"
+    model_save_path: str = "checkpoints/stable_diffusion_ldm.pth"
+
+    tensorboard_log_dir: str = "runs/StableDiffusionLDM"
+
+    sample_root: str = "samples_stable_diffusion"
+    train_split: str = "train"
+    val_split: str = "val"
+    gt_split: str = "eval_outputs/gt"
+    gen_split: str = "eval_outputs/gen"
+
+    sample_steps: int = 250            # 进一步增加采样步数，提升生成质量
 
     img_save_interval: int = 5
     lpips_eval_interval: int = 10
@@ -76,3 +161,20 @@ class LDMInferenceConfig:
 
     batch_size: int = 16
     sample_steps: int = 50
+
+
+@dataclass
+class StableDiffusionLDMInferenceConfig:
+    """
+    Configuration class for the Stable Diffusion LDM inference settings.
+    """
+
+    pretrained_ldm_path: str = "checkpoints/stable_diffusion_ldm.pth"
+
+    sample_root: str = "samples_stable_diffusion"
+    ref_split: str = "inference/ref"
+    gt_split: str = "inference/gt"
+    gen_split: str = "inference/gen"
+
+    batch_size: int = 16
+    sample_steps: int = 150            # 增加采样步数，提升生成质量

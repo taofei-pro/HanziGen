@@ -35,20 +35,28 @@ class TrainValLoader:
             random_seed=dataset_config.random_seed,
         )
 
+        # 优化数据加载器配置，减少显存占用
+        # 降低num_workers和prefetch_factor，避免过多预取导致显存爆炸
+        num_workers = min(2, dataset_config.num_workers)  # 限制最大为2个worker
+        
         train_loader = DataLoader(
             dataset=train_dataset,
             batch_size=dataset_config.batch_size,
             shuffle=True,
-            num_workers=dataset_config.num_workers,
+            num_workers=num_workers,
             pin_memory=True if device.type == "cuda" else False,
+            prefetch_factor=1 if num_workers > 0 else None,  # 只预取1个batch
+            persistent_workers=False,  # 不保持worker进程
         )
 
         val_loader = DataLoader(
             dataset=val_dataset,
             batch_size=dataset_config.batch_size,
             shuffle=False,
-            num_workers=dataset_config.num_workers,
+            num_workers=num_workers,
             pin_memory=True if device.type == "cuda" else False,
+            prefetch_factor=1 if num_workers > 0 else None,
+            persistent_workers=False,
         )
 
         return cls(train=train_loader, val=val_loader)
@@ -71,9 +79,15 @@ class Loader:
         """
         Creates a single data loader from a dataset directory.
         """
+        # 检查是否启用数据增强
+        use_augmentation = getattr(dataset_config, 'use_data_augmentation', False)
+        augmentation_type = getattr(dataset_config, 'augmentation_type', 'basic')
+        
         dataset = PairedGlyphImageDataset(
             target_img_dir=dataset_config.target_img_dir,
             reference_img_dir=dataset_config.reference_img_dir,
+            use_data_augmentation=use_augmentation,
+            augmentation_type=augmentation_type,
         )
         loader = TrainValLoader.from_dataset(
             dataset=dataset,

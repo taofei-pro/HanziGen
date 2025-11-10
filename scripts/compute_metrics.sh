@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TARGET_FONT_PATH="fonts/M8.ttf"
+TARGET_FONT_PATH="fonts/Z1.ttf"
 EVAL_BATCH_SIZE=2
 DEVICE="cuda"
 

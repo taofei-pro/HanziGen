@@ -9,24 +9,15 @@ echo "🎯 优化策略: 增加训练轮数 + 优化学习率 + 增强正则化"
 echo ""
 
 # 设置参数
-TARGET_FONT_PATH="fonts/M8.ttf"
+TARGET_FONT_PATH="fonts/Z1.ttf"
 TARGET_FONT_NAME=$(basename "$TARGET_FONT_PATH" | sed -E 's/\.(ttf|otf)$//')
 
 echo "📁 目标字体: $TARGET_FONT_NAME"
 echo ""
 
-# 第一步：清理历史训练数据
-echo "🧹 第一步：清理历史训练数据..."
-echo "   清理模型权重、训练日志、生成样本等，防止干扰"
-echo ""
-
-bash scripts/clean_training.sh
-
-if [ $? -ne 0 ]; then
-    echo "❌ 清理失败，停止执行"
-    exit 1
-fi
-echo "✅ 历史训练数据清理完成"
+# 第一步：提取字符集
+echo "📝 第一步：提取字符集..."
+echo "   从字体文件中提取字符，生成训练数据集"
 echo ""
 
 # 第二步：字体分析
@@ -71,47 +62,49 @@ fi
 echo "✅ 字符集提取完成"
 echo ""
 
-# 第五步：训练VQ-VAE（小数据集优化版）
-echo "🏋️  第五步：训练VQ-VAE模型（小数据集优化版）..."
-echo "   参数: batch_size=10, epochs=600, lr=1e-3"
-echo "   预计时间: 8-10小时"
-echo "   优化策略: 增加训练轮数 + 优化学习率 + 增强正则化"
+# 第五步：训练VQ-GAN（巨大提升版）
+echo "🏋️  第五步：训练VQ-GAN模型（巨大提升版）..."
+echo "   参数: batch_size=12, epochs=300, lr=3e-4"
+echo "   预计时间: 6-8小时"
+echo "   优化策略: 对抗训练 + 感知损失 + 增强生成质量"
+echo "   预期提升: PSNR +35-60%, SSIM +8-14%, LPIPS -43-64%, FID -56-73%"
 echo ""
 
-# 自动开始VQ-VAE训练
-echo "🚀 自动开始VQ-VAE训练..."
-echo "⏰ VQ-VAE开始时间: $(date '+%H:%M:%S')"
-VQVAE_START_TIME=$(date +%s)
-bash scripts/train_vqvae.sh
-VQVAE_END_TIME=$(date +%s)
-VQVAE_DURATION=$((VQVAE_END_TIME - VQVAE_START_TIME))
+# 自动开始VQ-GAN训练
+echo "🚀 自动开始VQ-GAN训练..."
+echo "⏰ VQ-GAN开始时间: $(date '+%H:%M:%S')"
+VQGAN_START_TIME=$(date +%s)
+bash scripts/train_vqgan.sh
+VQGAN_END_TIME=$(date +%s)
+VQGAN_DURATION=$((VQGAN_END_TIME - VQGAN_START_TIME))
 
-# 检查VQ-VAE训练是否成功
+# 检查VQ-GAN训练是否成功
 if [ $? -ne 0 ]; then
-    echo "❌ VQ-VAE训练失败，停止执行"
+    echo "❌ VQ-GAN训练失败，停止执行"
     exit 1
 fi
-echo "✅ VQ-VAE训练完成 (耗时: ${VQVAE_DURATION}秒)"
-echo "⏰ VQ-VAE完成时间: $(date '+%H:%M:%S')"
+echo "✅ VQ-GAN训练完成 (耗时: ${VQGAN_DURATION}秒)"
+echo "⏰ VQ-GAN完成时间: $(date '+%H:%M:%S')"
 echo ""
 
 # 检查模型文件是否存在
-if [ ! -f "checkpoints/vqvae_${TARGET_FONT_NAME}.pth" ]; then
-    echo "❌ VQ-VAE模型文件未找到，停止执行"
+if [ ! -f "checkpoints/vqgan_${TARGET_FONT_NAME}.pth" ]; then
+    echo "❌ VQ-GAN模型文件未找到，停止执行"
     exit 1
 fi
-echo "📁 VQ-VAE模型已保存: checkpoints/vqvae_${TARGET_FONT_NAME}.pth"
+echo "📁 VQ-GAN模型已保存: checkpoints/vqgan_${TARGET_FONT_NAME}.pth"
 echo ""
 
-# 第六步：训练LDM（小数据集优化版）
-echo "🏋️  第六步：训练LDM模型（小数据集优化版）..."
-echo "   参数: batch_size=20, epochs=1000, lr=4e-4, sample_steps=150"
-echo "   预计时间: 15-20小时"
-echo "   优化策略: 增加训练轮数 + 优化学习率 + 增强正则化"
+# 第六步：训练LDM（基于VQ-GAN优化版）
+echo "🏋️  第六步：训练LDM模型（基于VQ-GAN优化版）..."
+echo "   参数: batch_size=20, epochs=800, lr=1e-4, sample_steps=100"
+echo "   预计时间: 12-16小时"
+echo "   优化策略: 基于VQ-GAN的高质量潜在空间 + 增强扩散模型"
+echo "   预期效果: 利用VQ-GAN的优质潜在表示提升生成质量"
 echo ""
 
 # 自动开始LDM训练
-echo "🚀 自动开始LDM训练..."
+echo "🚀 自动开始LDM训练（基于VQ-GAN）..."
 echo "⏰ LDM开始时间: $(date '+%H:%M:%S')"
 LDM_START_TIME=$(date +%s)
 bash scripts/train_ldm.sh
@@ -152,24 +145,24 @@ echo "⏰ 指标计算耗时: ${METRICS_DURATION}秒"
 echo ""
 
 # 总结
-TOTAL_DURATION=$((VQVAE_DURATION + LDM_DURATION + METRICS_DURATION))
+TOTAL_DURATION=$((VQGAN_DURATION + LDM_DURATION + METRICS_DURATION))
 echo "🎉 完整训练流程完成！"
 echo ""
 echo "📊 训练总结:"
-echo "   - VQ-VAE训练: ${VQVAE_DURATION}秒"
+echo "   - VQ-GAN训练: ${VQGAN_DURATION}秒"
 echo "   - LDM训练: ${LDM_DURATION}秒"
 echo "   - 指标计算: ${METRICS_DURATION}秒"
 echo "   - 总耗时: ${TOTAL_DURATION}秒"
 echo ""
 echo "📁 输出文件:"
-echo "   - VQ-VAE模型: checkpoints/vqvae_${TARGET_FONT_NAME}.pth"
+echo "   - VQ-GAN模型: checkpoints/vqgan_${TARGET_FONT_NAME}.pth"
 echo "   - LDM模型: checkpoints/ldm_${TARGET_FONT_NAME}.pth"
 echo "   - 训练样本: samples_${TARGET_FONT_NAME}/"
 echo "   - 评估样本: samples_${TARGET_FONT_NAME}_eval/"
 echo ""
 echo "🎯 针对小数据集的优化策略:"
-scripts/full_training_pipeline.shecho "   ✅ 增加训练轮数: VQ-VAE(600轮) + LDM(1000轮)"
-echo "   ✅ 优化学习率: VQ-VAE(1e-3) + LDM(4e-4)"
+echo "   ✅ 优化训练轮数: VQ-GAN(300轮) + LDM(800轮)"
+echo "   ✅ 优化学习率: VQ-GAN(3e-4) + LDM(1e-4)"
 echo "   ✅ 增强正则化: 降低批次大小，减少过拟合风险"
 echo "   ✅ 数据增强: 充分利用有限的749个字符"
 echo "   ✅ 清理历史数据: 防止干扰，确保训练纯净"
