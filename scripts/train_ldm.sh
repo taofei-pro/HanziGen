@@ -4,9 +4,9 @@ TARGET_FONT_PATH="fonts/Z1.ttf"
 TRAIN_SPLIT_RATIO=0.9           # 保持0.9/0.1比例
 VAL_SPLIT_RATIO=0.1             # 保持0.9/0.1比例
 RANDOM_SEED=2025
-BATCH_SIZE=16                    # 回退到稳定批次大小
-LEARNING_RATE=4e-4               # 进一步提高学习率，加快收敛
-NUM_EPOCHS=600                   # 适中的训练轮数
+BATCH_SIZE=4                     # 降低批次大小，避免显存不足（OOM优化）
+LEARNING_RATE=3e-4               # 降低学习率，提高稳定性（大数据集优化）
+NUM_EPOCHS=450                   # 减少训练轮数（数据量增加12.7倍）
 SAMPLE_STEPS=200                 # 进一步增加采样步数，提升生成质量
 IMG_SAVE_INTERVAL=5              # 保持5
 LPIPS_EVAL_INTERVAL=10           # 保持10
@@ -14,7 +14,7 @@ EVAL_BATCH_SIZE=4                # 保持4
 DEVICE="cuda"
 
 echo "🚀 开始基于VQ-GAN的LDM训练..."
-echo "📊 数据集大小: 749个字符"
+echo "📊 数据集大小: 9,497个字符（训练集: 8,547 | 验证集: 950）"
 echo "🎯 优化策略: 基于VQ-GAN的高质量潜在空间 + 增强扩散模型"
 echo "💾 显存优化: 针对RTX 5090D优化"
 echo "🔧 架构改进: VQ-GAN潜在空间 + 改进的注意力机制 + 残差连接"
@@ -70,13 +70,14 @@ SAMPLE_ROOT="samples_${TARGET_FONT_NAME}/"
 echo "📁 目标字体: $TARGET_FONT_NAME"
 echo "💾 VQ-GAN模型: $PRETRAINED_VQVAE_PATH"
 echo "💾 LDM模型保存路径: $MODEL_SAVE_PATH"
-echo "⚙️  训练参数:"
-echo "   - 批次大小: 4"
-echo "   - 学习率: $LEARNING_RATE (提高收敛速度)"
-echo "   - 训练轮数: $NUM_EPOCHS (减少到600轮)"
+echo "⚙️  训练参数（大数据集优化 + 显存优化）:"
+echo "   - 批次大小: $BATCH_SIZE (显存优化，避免OOM)"
+echo "   - 学习率: $LEARNING_RATE (降低学习率，提高稳定性)"
+echo "   - 训练轮数: $NUM_EPOCHS (数据量增加12.7倍，每个epoch数据更多)"
 echo "   - 采样步数: $SAMPLE_STEPS"
 echo "   - 训练/验证比例: $TRAIN_SPLIT_RATIO/$VAL_SPLIT_RATIO"
-echo "   - 显存清理: 每10批次 (平衡速度与显存)"
+echo "   - 预热轮数: 60 (增加预热期，让模型稳定启动)"
+echo "   - 早停耐心: 120 (大数据集需要更多耐心)"
 echo "   - 数据增强: 已禁用"
 echo "🔧 LDM架构速度优化:"
 echo "   - UNet通道: 96 (回退到稳定值)"

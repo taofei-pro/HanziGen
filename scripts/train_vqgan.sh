@@ -16,8 +16,8 @@ if [ ! -f "$TARGET_FONT_PATH" ]; then
 fi
 
 echo "🚀 开始VQ-GAN训练..."
-echo "📊 数据集大小: 749个字符"
-echo "🎯 优化策略: 启用对抗训练 + 感知损失 + 增强生成质量"
+echo "📊 数据集大小: 9,497个字符（训练集: 8,547 | 验证集: 950）"
+echo "🎯 优化策略: 大数据集优化 + 对抗训练 + 感知损失"
 echo "💾 显存优化: 针对RTX 5090D优化"
 echo "🔧 架构改进: VQ-VAE + PatchGAN判别器 + 感知损失"
 echo ""
@@ -70,10 +70,11 @@ echo "   - 跳跃连接: 暂时禁用（显存优化）"
 echo "   - 判别器: PatchGAN"
 echo "   - 感知损失: 启用 (权重0.4)"
 echo "   - 对抗训练: 启用 (权重0.1)"
-echo "   - 批次大小: 4"
-echo "   - 训练轮数: 400"
-echo "   - 学习率: 8e-4 (提高收敛速度)"
-echo "   - 显存清理: 每10批次 (平衡速度与显存)"
+echo "   - 批次大小: 4 (显存优化，避免OOM)"
+echo "   - 训练轮数: 300 (数据量增加12.7倍，每个epoch数据更多)"
+echo "   - 学习率: 6e-4 (降低学习率，提高稳定性)"
+echo "   - 预热轮数: 40 (增加预热期，让模型稳定启动)"
+echo "   - 早停耐心: 120 (大数据集需要更多耐心)"
 echo "   - 数据增强: 已禁用"
 echo ""
 
@@ -89,9 +90,9 @@ python train_vqgan.py \
     --model_save_path "$MODEL_SAVE_PATH" \
     --log_dir "runs/VQGAN" \
     --sample_dir "samples_${TARGET_FONT_NAME}" \
-    --num_epochs 400 \
+    --num_epochs 300 \
     --batch_size 4 \
-    --learning_rate 8e-4 \
+    --learning_rate 6e-4 \
     --use_vqgan \
     --discriminator_lr 2e-4 \
     --perceptual_weight 0.4 \

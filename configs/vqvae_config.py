@@ -13,8 +13,8 @@ class VQVAEDatasetConfig:
     splits_root: str = "charsets"
     split_ratios: tuple[float, float] = (0.9, 0.1)
     random_seed: int = 2025
-    batch_size: int = 4          # 降低批次大小，避免显存爆炸 (8 → 4)
-    num_workers: int = 4
+    batch_size: int = 4          # 降低批次大小，避免显存不足（OOM优化）(6 → 4)
+    num_workers: int = 2         # 减少数据加载worker，降低显存占用（OOM优化）(4 → 2)
     
     # 数据增强配置（针对字形数据优化）
     use_data_augmentation: bool = False   # 禁用数据增强 - 字形数据对几何变换过于敏感
@@ -52,12 +52,12 @@ class VQVAETrainingConfig:
     Configuration class for VQ-VAE training settings.
     """
 
-    # 平衡训练速度和效果
-    learning_rate: float = 8e-4        # 提高学习率，加快收敛 (6e-4 → 8e-4)
+    # 针对大数据集（9,497字符）优化
+    learning_rate: float = 6e-4        # 降低学习率，提高稳定性 (8e-4 → 6e-4)
     min_learning_rate: float = 1e-6    # 保持默认值
-    num_epochs: int = 400              # 减少训练轮数，提高速度 (500 → 400)
-    warmup_epochs: int = 30            # 减少预热轮数 (40 → 30)
-    early_stopping_patience: int = 100  # 合理的早停耐心 (120 → 100)
+    num_epochs: int = 300              # 减少训练轮数（数据量增加12.7倍，每个epoch数据更多）(400 → 300)
+    warmup_epochs: int = 40            # 增加预热轮数，让模型稳定启动 (30 → 40)
+    early_stopping_patience: int = 120  # 增加早停耐心，大数据集需要更多耐心 (100 → 120)
     
     # 新增正则化参数
     weight_decay: float = 2e-4         # 增加权重衰减，防止过拟合

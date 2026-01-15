@@ -13,8 +13,8 @@ class LDMDatasetConfig:
     splits_root: str = "charsets"
     split_ratios: tuple[float, float] = (0.9, 0.1)
     random_seed: int = 2025
-    batch_size: int = 4          # 降低批次大小，避免显存爆炸 (12 → 4)
-    num_workers: int = 4
+    batch_size: int = 4          # 降低批次大小，避免显存不足（OOM优化）(8 → 4)
+    num_workers: int = 2         # 减少数据加载worker，降低显存占用（OOM优化）(4 → 2)
     
     # 数据增强配置（针对字形数据优化）
     use_data_augmentation: bool = False   # 禁用数据增强 - 字形数据对几何变换过于敏感
@@ -90,12 +90,12 @@ class LDMTrainingConfig:
     Configuration class for the LDM training settings.
     """
 
-    # 平衡训练速度和效果
-    learning_rate: float = 4e-4        # 提高学习率，加快收敛 (3e-4 → 4e-4)
+    # 针对大数据集（9,497字符）优化
+    learning_rate: float = 3e-4        # 降低学习率，提高稳定性 (4e-4 → 3e-4)
     min_learning_rate: float = 1e-6    # 保持默认值
-    num_epochs: int = 600              # 减少训练轮数，提高速度 (700 → 600)
-    warmup_epochs: int = 50            # 减少预热轮数 (60 → 50)
-    early_stopping_patience: int = 100  # 合理的早停耐心 (120 → 100)
+    num_epochs: int = 450              # 减少训练轮数（数据量增加12.7倍）(600 → 450)
+    warmup_epochs: int = 60            # 增加预热轮数，让模型稳定启动 (50 → 60)
+    early_stopping_patience: int = 120  # 增加早停耐心，大数据集需要更多耐心 (100 → 120)
 
     pretrained_vqvae_path: str = "checkpoints/vqvae.pth"
     model_save_path: str = "checkpoints/ldm.pth"
@@ -121,12 +121,12 @@ class StableDiffusionLDMTrainingConfig:
     Configuration class for the Stable Diffusion LDM training settings.
     """
 
-    # 平衡训练速度和效果
-    learning_rate: float = 5e-4        # 提高学习率，加快收敛 (4e-4 → 5e-4)
+    # 针对大数据集（9,497字符）优化
+    learning_rate: float = 4e-4        # 降低学习率，提高稳定性 (5e-4 → 4e-4)
     min_learning_rate: float = 1e-6    # 保持默认值
-    num_epochs: int = 800              # 减少训练轮数，提高速度 (900 → 800)
-    warmup_epochs: int = 100           # 减少预热轮数 (120 → 100)
-    early_stopping_patience: int = 100  # 合理的早停耐心 (120 → 100)
+    num_epochs: int = 600              # 减少训练轮数（数据量增加12.7倍）(800 → 600)
+    warmup_epochs: int = 120           # 增加预热轮数，让模型稳定启动 (100 → 120)
+    early_stopping_patience: int = 120  # 增加早停耐心，大数据集需要更多耐心 (100 → 120)
 
     pretrained_vqvae_path: str = "checkpoints/vqvae.pth"
     model_save_path: str = "checkpoints/stable_diffusion_ldm.pth"
